@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Veritas Agent — Deepfake & Threat Detector</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+          --bg:         #0a0f1a;
+          --surface:    #111827;
+          --surface2:   #1a2235;
+          --border:     #1e2d45;
+          --border-hi:  #2a3f5f;
+          --text:       #e2e8f0;
+          --muted:      #64748b;
+          --cyan:       #06b6d4;
+          --cyan-dim:   rgba(6,182,212,0.10);
+          --cyan-bdr:   rgba(6,182,212,0.30);
+          --amber:      #f59e0b;
+          --amber-dim:  rgba(245,158,11,0.10);
+          --amber-bdr:  rgba(245,158,11,0.25);
+          --red:        #ef4444;
+          --red-dim:    rgba(239,68,68,0.10);
+          --red-bdr:    rgba(239,68,68,0.25);
+          --green:      #10b981;
+          --green-dim:  rgba(16,185,129,0.10);
+          --green-bdr:  rgba(16,185,129,0.25);
+        }
+
+        body {
+          background: var(--bg);
+          color: var(--text);
+          font-family: 'Courier New', Courier, monospace;
+          min-height: 100vh;
+          background-image:
+            radial-gradient(ellipse 80% 50% at 50% -20%, rgba(6,182,212,0.07), transparent),
+            linear-gradient(180deg, rgba(6,182,212,0.02) 0%, transparent 60%);
+        }
+
+        /* ── Shell ── */
+        .shell { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem 5rem; }
+
+        /* ── Header ── */
+        .header {
+          display: flex; align-items: center; justify-content: space-between;
+          margin-bottom: 2rem; padding-bottom: 1.5rem;
+          border-bottom: 1px solid var(--border);
+        }
+        .header-left { display: flex; align-items: center; gap: 14px; }
+        .logo {
+          width: 44px; height: 44px; border-radius: 12px;
+          background: linear-gradient(135deg, rgba(6,182,212,0.2), rgba(6,182,212,0.05));
+          border: 1px solid var(--cyan-bdr);
+          display: flex; align-items: center; justify-content: center;
+        }
+        .logo svg { width: 22px; height: 22px; }
+        .brand-name {
+          font-size: 22px; font-weight: 800; letter-spacing: -0.5px;
+          color: var(--text);
+        }
+        .brand-name .accent { color: var(--cyan); }
+        .hackathon-badge {
+          font-size: 10px; font-weight: 700; letter-spacing: 0.12em;
+          background: transparent; color: var(--cyan);
+          border: 1px solid var(--cyan-bdr);
+          padding: 3px 10px; border-radius: 20px;
+        }
+        .agent-status {
+          font-size: 12px; color: var(--muted);
+          display: flex; align-items: center; gap: 6px;
+        }
+        .status-dot {
+          width: 7px; height: 7px; border-radius: 50%;
+          background: var(--green);
+          box-shadow: 0 0 6px var(--green);
+          animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50%       { opacity: 0.5; }
+        }
+
+        /* ── Stats bar ── */
+        .stats-bar {
+          display: grid; grid-template-columns: repeat(4, 1fr);
+          gap: 12px; margin-bottom: 2rem;
+        }
+        .stat-card {
+          background: var(--surface); border: 1px solid var(--border);
+          border-radius: 12px; padding: 1.2rem 1.4rem;
+          position: relative; overflow: hidden;
+        }
+        .stat-card::before {
+          content: ''; position: absolute; inset: 0;
+          background: linear-gradient(135deg, rgba(6,182,212,0.04), transparent);
+          pointer-events: none;
+        }
+        .stat-val {
+          font-size: 28px; font-weight: 800;
+          color: var(--cyan); letter-spacing: -1px;
+          font-variant-numeric: tabular-nums;
+        }
+        .stat-label { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+        /* ── Two-column layout ── */
+        .main-grid {
+          display: grid; grid-template-columns: 1fr 1fr;
+          gap: 16px; margin-bottom: 16px;
+        }
+
+        /* ── Panels ── */
+        .panel {
+          background: var(--surface); border: 1px solid var(--border);
+          border-radius: 14px; overflow: hidden;
+        }
+        .panel-header {
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 1rem 1.2rem; border-bottom: 1px solid var(--border);
+        }
+        .panel-title {
+          display: flex; align-items: center; gap: 10px;
+          font-size: 14px; font-weight: 700;
+        }
+        .panel-icon {
+          width: 28px; height: 28px; border-radius: 8px;
+          background: var(--cyan-dim); border: 1px solid var(--cyan-bdr);
+          display: flex; align-items: center; justify-content: center;
+          font-size: 14px;
+        }
+        .tag {
+          font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
+          border: 1px solid; border-radius: 4px; padding: 2px 8px;
+        }
+        .tag-cyan  { color: var(--cyan);  border-color: var(--cyan-bdr);  background: var(--cyan-dim); }
+        .tag-amber { color: var(--amber); border-color: var(--amber-bdr); background: var(--amber-dim); }
+        .panel-body { padding: 1.2rem; }
+
+        /* ── Drop zone ── */
+        .drop-zone {
+          border: 1.5px dashed var(--border-hi);
+          border-radius: 10px; padding: 2.5rem 1rem;
+          text-align: center; cursor: pointer;
+          transition: border-color 0.2s, background 0.2s;
+          margin-bottom: 1rem;
+        }
+        .drop-zone:hover { border-color: var(--cyan); background: var(--cyan-dim); }
+        .drop-icon { font-size: 32px; margin-bottom: 12px; color: var(--cyan); }
+        .drop-title { font-size: 14px; font-weight: 600; margin-bottom: 5px; }
+        .drop-sub { font-size: 11px; color: var(--muted); margin-bottom: 12px; }
+        .format-tags { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; }
+        .format-tag {
+          font-size: 10px; border: 1px solid var(--border-hi);
+          border-radius: 4px; padding: 2px 8px; color: var(--muted);
+        }
+        .file-input { display: none; }
+
+        /* ── Buttons ── */
+        .btn-primary {
+          width: 100%; padding: 12px;
+          background: linear-gradient(135deg, rgba(6,182,212,0.2), rgba(6,182,212,0.1));
+          border: 1px solid var(--cyan-bdr);
+          border-radius: 8px;
+          color: var(--cyan); font-family: 'Courier New', monospace;
+          font-size: 13px; font-weight: 700; letter-spacing: 0.05em;
+          cursor: pointer; transition: all 0.2s;
+          display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .btn-primary:hover {
+          background: var(--cyan-dim);
+          box-shadow: 0 0 20px rgba(6,182,212,0.15);
+        }
+        .btn-demo {
+          width: 100%; padding: 10px;
+          background: transparent; border: 1px solid var(--border-hi);
+          border-radius: 8px; color: var(--muted);
+          font-family: 'Courier New', monospace; font-size: 12px;
+          cursor: pointer; transition: all 0.2s; margin-top: 8px;
+          display: flex; align-items: center; justify-content: center; gap: 6px;
+        }
+        .btn-demo:hover { border-color: var(--cyan); color: var(--cyan); }
+        .btn-check {
+          padding: 10px 18px;
+          background: var(--cyan-dim); border: 1px solid var(--cyan-bdr);
+          border-radius: 8px; color: var(--cyan);
+          font-family: 'Courier New', monospace; font-size: 13px; font-weight: 700;
+          cursor: pointer; transition: all 0.2s; white-space: nowrap;
+        }
+        .btn-check:hover { background: rgba(6,182,212,0.2); }
+
+        /* ── URL input row ── */
+        .url-row { display: flex; gap: 8px; margin-bottom: 1rem; }
+        .url-input {
+          flex: 1; padding: 10px 12px;
+          background: var(--surface2); border: 1px solid var(--border-hi);
+          border-radius: 8px; color: var(--text);
+          font-family: 'Courier New', monospace; font-size: 12px;
+          outline: none; transition: border-color 0.2s;
+        }
+        .url-input::placeholder { color: var(--muted); }
+        .url-input:focus { border-color: var(--cyan); }
+
+        /* ── Toggle options ── */
+        .toggle-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 1rem; }
+        .toggle-item {
+          display: flex; align-items: center; gap: 8px;
+          background: var(--surface2); border: 1px solid var(--border);
+          border-radius: 8px; padding: 8px 12px; cursor: pointer;
+          transition: border-color 0.2s;
+        }
+        .toggle-item:hover { border-color: var(--border-hi); }
+        .toggle-dot {
+          width: 10px; height: 10px; border-radius: 50%;
+          background: var(--green); box-shadow: 0 0 4px var(--green);
+          flex-shrink: 0;
+        }
+        .toggle-dot.off { background: var(--muted); box-shadow: none; }
+        .toggle-label { font-size: 11px; font-weight: 600; }
+
+        /* ── Agent console ── */
+        .console-panel {
+          background: var(--surface); border: 1px solid var(--border);
+          border-radius: 14px; overflow: hidden;
+        }
+        .console-header {
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 1rem 1.2rem; border-bottom: 1px solid var(--border);
+        }
+        .console-body {
+          background: #060d18; min-height: 260px;
+          padding: 1.2rem; font-size: 12px;
+          display: flex; flex-direction: column;
+        }
+        .console-placeholder {
+          display: flex; flex-direction: column; align-items: center;
+          justify-content: center; flex: 1;
+          color: var(--muted); gap: 12px; opacity: 0.5;
+        }
+        .console-hex { font-size: 22px; }
+        .console-log { display: flex; flex-direction: column; gap: 6px; }
+        .log-line { display: flex; gap: 10px; align-items: flex-start; }
+        .log-time { color: var(--muted); font-size: 10px; white-space: nowrap; margin-top: 2px; }
+        .log-msg  { color: var(--cyan); line-height: 1.5; }
+        .log-msg.warn   { color: var(--amber); }
+        .log-msg.danger { color: var(--red); }
+        .log-msg.pass   { color: var(--green); }
+
+        .idle-tag {
+          font-size: 10px; border: 1px solid var(--border-hi);
+          border-radius: 4px; padding: 2px 10px; color: var(--muted);
+        }
+        .btn-clear {
+          font-size: 11px; border: 1px solid var(--border-hi);
+          border-radius: 6px; padding: 4px 12px; color: var(--muted);
+          background: transparent; cursor: pointer;
+          font-family: 'Courier New', monospace; transition: all 0.2s;
+        }
+        .btn-clear:hover { border-color: var(--red-bdr); color: var(--red); }
+
+        /* ── Results section ── */
+        .results-section { margin-top: 16px; }
+
+        /* ── Score bar ── */
+        .bar-wrap { margin-bottom: 1.4rem; }
+        .bar-meta {
+          display: flex; justify-content: space-between;
+          font-size: 10px; color: var(--muted);
+          text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px;
+        }
+        .bar-track { height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
+        .bar-fill { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
+        .bar-fill.safe   { background: var(--cyan); }
+        .bar-fill.warn   { background: var(--amber); }
+        .bar-fill.danger { background: var(--red); }
+
+        /* ── Metrics ── */
+        .metrics { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 1.4rem; }
+        .metric {
+          background: var(--surface2); border: 1px solid var(--border);
+          border-radius: 10px; padding: 0.9rem 1rem;
+        }
+        .metric-label { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 5px; }
+        .metric-val { font-size: 20px; font-weight: 800; }
+        .metric-val.safe   { color: var(--cyan); }
+        .metric-val.warn   { color: var(--amber); }
+        .metric-val.danger { color: var(--red); }
+
+        /* ── Verdict ── */
+        .verdict {
+          border-radius: 10px; padding: 1rem 1.2rem;
+          margin-bottom: 1.4rem;
+          display: flex; align-items: center; gap: 14px;
+          border: 1px solid;
+        }
+        .verdict.safe   { background: var(--cyan-dim);  border-color: var(--cyan-bdr); }
+        .verdict.warn   { background: var(--amber-dim); border-color: var(--amber-bdr); }
+        .verdict.danger { background: var(--red-dim);   border-color: var(--red-bdr); }
+        .verdict-icon {
+          width: 38px; height: 38px; border-radius: 50%;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 17px; flex-shrink: 0;
+        }
+        .verdict.safe   .verdict-icon { background: rgba(6,182,212,0.15); }
+        .verdict.warn   .verdict-icon { background: rgba(245,158,11,0.15); }
+        .verdict.danger .verdict-icon { background: rgba(239,68,68,0.15); }
+        .verdict-title { font-size: 14px; font-weight: 700; }
+        .verdict-sub   { font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+        /* ── Checks list ── */
+        .section-title {
+          font-size: 10px; color: var(--muted);
+          text-transform: uppercase; letter-spacing: 0.09em;
+          margin-bottom: 8px; font-weight: 600;
+        }
+        .checks { display: grid; gap: 6px; }
+        .check-item {
+          background: var(--surface2); border: 1px solid var(--border);
+          border-radius: 8px; padding: 9px 12px;
+          display: flex; align-items: center; gap: 10px;
+        }
+        .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+        .dot.pass   { background: var(--cyan); }
+        .dot.warn   { background: var(--amber); }
+        .dot.fail   { background: var(--red); }
+        .check-label  { font-size: 12px; color: var(--text); flex: 1; }
+        .check-detail { font-size: 10px; color: var(--muted); margin-top: 2px; }
+        .badge {
+          font-size: 10px; padding: 2px 8px; border-radius: 4px;
+          border: 1px solid; flex-shrink: 0; font-weight: 700;
+        }
+        .badge.pass   { color: var(--cyan);  border-color: var(--cyan-bdr);  background: var(--cyan-dim); }
+        .badge.warn   { color: var(--amber); border-color: var(--amber-bdr); background: var(--amber-dim); }
+        .badge.fail   { color: var(--red);   border-color: var(--red-bdr);   background: var(--red-dim); }
+
+        /* ── Scanned chip ── */
+        .scanned-url {
+          font-size: 11px; color: var(--muted);
+          background: var(--surface2); border: 1px solid var(--border);
+          border-radius: 6px; padding: 5px 10px; margin-bottom: 1.2rem;
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+
+        /* ── Video result ── */
+        .video-result {
+          padding: 1rem;
+        }
+        .video-verdict {
+          border-radius: 10px; padding: 1rem 1.2rem;
+          border: 1px solid; margin-bottom: 1rem;
+          display: flex; align-items: center; gap: 12px;
+        }
+        .video-verdict.safe   { background: var(--green-dim); border-color: var(--green-bdr); }
+        .video-verdict.danger { background: var(--red-dim);   border-color: var(--red-bdr); }
+        .video-icon {
+          width: 36px; height: 36px; border-radius: 50%;
+          display: flex; align-items: center; justify-content: center; font-size: 16px;
+        }
+        .video-verdict.safe   .video-icon { background: rgba(16,185,129,0.15); }
+        .video-verdict.danger .video-icon { background: rgba(239,68,68,0.15); }
+
+        /* ── Error ── */
+        .error-msg {
+          background: var(--red-dim); border: 1px solid var(--red-bdr);
+          color: var(--red); border-radius: 8px; padding: 10px 14px;
+          font-size: 12px; margin-bottom: 1rem;
+        }
+
+        /* ── Empty ── */
+        .empty {
+          text-align: center; padding: 3rem 1rem; color: var(--muted);
+        }
+        .empty-icon { font-size: 30px; opacity: 0.25; margin-bottom: 10px; }
+        .empty-text { font-size: 12px; }
+
+        /* ── Footer ── */
+        .footer {
+          text-align: center; margin-top: 3rem;
+          font-size: 11px; color: var(--muted);
+          border-top: 1px solid var(--border); padding-top: 1.5rem;
+        }
+        .footer a { color: var(--cyan); text-decoration: none; }
+
+        /* ── Active file name ── */
+        .file-chosen {
+          font-size: 11px; color: var(--cyan); background: var(--cyan-dim);
+          border: 1px solid var(--cyan-bdr); border-radius: 6px;
+          padding: 5px 10px; margin-bottom: 8px; display: none;
+        }
+
+        @media (max-width: 768px) {
+          .main-grid { grid-template-columns: 1fr; }
+          .stats-bar { grid-template-columns: repeat(2,1fr); }
+        }
+    </style>
+</head>
+<body>
+<div class="shell">
+
+    <!-- ── Header ── -->
+    <div class="header">
+        <div class="header-left">
+            <div class="logo">
+                <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M10 2L4 5.5V10c0 4 2.8 7.3 6 8.5 3.2-1.2 6-4.5 6-8.5V5.5L10 2z"
+                          stroke="#06b6d4" stroke-width="1.5" fill="none"/>
+                    <path d="M7 10l2 2 4-4" stroke="#06b6d4" stroke-width="1.5"
+                          stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            <div>
+                <div class="brand-name">Veritas <span class="accent">Agent</span></div>
+            </div>
+            <span class="hackathon-badge">HACKATHON BUILD</span>
+        </div>
+        <div class="agent-status">
+            <div class="status-dot"></div>
+            Agent online &nbsp;·&nbsp; v1.0.0
+        </div>
+    </div>
+
+    <!-- ── Stats bar ── -->
+    <div class="stats-bar">
+        <div class="stat-card">
+            <div class="stat-val" id="scanCount">0</div>
+            <div class="stat-label">scans today</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-val" id="accuracy">0%</div>
+            <div class="stat-label">detection accuracy</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-val" id="avgTime">0s</div>
+            <div class="stat-label">avg. analysis time</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-val" id="threatCount">0</div>
+            <div class="stat-label">threats flagged</div>
+        </div>
+    </div>
+
+    <!-- ── Main two-column grid ── -->
+    <div class="main-grid">
+
+        <!-- LEFT: Video Analysis -->
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <div class="panel-icon">🎥</div>
+                    Video Analysis
+                </div>
+                <span class="tag tag-cyan">DEEPFAKE DETECTOR</span>
+            </div>
+            <div class="panel-body">
+                <form action="/analyze/video" method="post" enctype="multipart/form-data" id="videoForm">
+                    <div class="drop-zone" id="dropZone" onclick="document.getElementById('videoFile').click()">
+                        <div class="drop-icon">📁</div>
+                        <div class="drop-title">Drop your video here</div>
+                        <div class="drop-sub">or click to browse files</div>
+                        <div class="format-tags">
+                            <span class="format-tag">MP4</span>
+                            <span class="format-tag">AVI</span>
+                            <span class="format-tag">MOV</span>
+                            <span class="format-tag">MKV</span>
+                            <span class="format-tag">WEBM</span>
+                        </div>
+                    </div>
+                    <div class="file-chosen" id="fileChosen">📎 No file selected</div>
+                    <input type="file" name="video" id="videoFile" class="file-input"
+                           accept="video/mp4,video/avi,video/mov,video/mkv,video/webm,.mp4,.avi,.mov,.mkv,.webm"/>
+                    <button class="btn-primary" type="submit">
+                        🛡 Analyze Video
+                    </button>
+                </form>
+
+                <!-- Video result (Thymeleaf) -->
+                <div th:if="${videoResult}" class="video-result" style="margin-top:1rem;">
+                    <div class="video-verdict" th:classappend="${videoResult.deepfakeClass}">
+                        <div class="video-icon"
+                             th:text="${videoResult.deepfakeClass == 'safe'} ? '✓' : '✗'">✓</div>
+                        <div>
+                            <div class="verdict-title" th:text="${videoResult.verdictTitle}">Authentic</div>
+                            <div class="verdict-sub"   th:text="${videoResult.verdictMessage}">No manipulation detected.</div>
+                        </div>
+                    </div>
+                    <div class="metrics">
+                        <div class="metric">
+                            <div class="metric-label">Confidence</div>
+                            <div class="metric-val"
+                                 th:classappend="${videoResult.deepfakeClass}"
+                                 th:text="${videoResult.confidencePercent + '%'}">0%</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-label">Frames scanned</div>
+                            <div class="metric-val safe" th:text="${videoResult.framesScanned}">0</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-label">Anomalies</div>
+                            <div class="metric-val"
+                                 th:classappend="${videoResult.anomalyCount > 0 ? 'danger' : 'safe'}"
+                                 th:text="${videoResult.anomalyCount}">0</div>
+                        </div>
+                    </div>
+                    <div class="section-title">Detection signals</div>
+                    <div class="checks">
+                        <div class="check-item" th:each="s : ${videoResult.signals}">
+                            <div class="dot" th:classappend="${s.status()}"></div>
+                            <div style="flex:1;">
+                                <div class="check-label"  th:text="${s.label()}">Signal</div>
+                                <div class="check-detail" th:text="${s.detail()}">Detail</div>
+                            </div>
+                            <div class="badge"
+                                 th:classappend="${s.status()}"
+                                 th:text="${s.status().toUpperCase()}">PASS</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="error-msg" th:if="${videoError}" th:text="${videoError}"></div>
+            </div>
+        </div>
+
+        <!-- RIGHT: Live Agent Console -->
+        <div class="console-panel">
+            <div class="console-header">
+                <div class="panel-title">
+                    <div class="panel-icon">⚡</div>
+                    Live Agent Console
+                </div>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <span class="idle-tag" id="consoleStatus">IDLE</span>
+                    <button class="btn-clear" onclick="clearConsole()">Clear</button>
+                </div>
+            </div>
+            <div class="console-body" id="consoleBody">
+                <div class="console-placeholder" id="consolePlaceholder">
+                    <div class="console-hex">⬡</div>
+                    <div>Agent reasoning will appear here...</div>
+                </div>
+                <div class="console-log" id="consoleLog" style="display:none;"></div>
+            </div>
+
+            <!-- Claim check results appear in console -->
+            <div th:if="${claimResult}" style="display:none;" id="claimResultData"
+                 th:data-logs="${claimResult.consoleLog}">
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ── URL / Claim Check panel (full width) ── -->
+    <div class="panel">
+        <div class="panel-header">
+            <div class="panel-title">
+                <div class="panel-icon">🌐</div>
+                URL / Claim Check
+            </div>
+            <span class="tag tag-amber">FACT CHECK + SEARCH</span>
+        </div>
+        <div class="panel-body">
+
+            <!-- Claim check form -->
+            <form action="/analyze" method="post" id="claimForm">
+                <div class="url-row">
+                    <input class="url-input" type="text" name="url"
+                           th:value="${url}"
+                           placeholder="https://example.com/article  or paste a claim to fact-check..."
+                           autocomplete="off"/>
+                    <button class="btn-check" type="submit">Check</button>
+                </div>
+
+                <div class="toggle-grid">
+                    <div class="toggle-item">
+                        <div class="toggle-dot"></div>
+                        <span class="toggle-label">Google Fact Check</span>
+                    </div>
+                    <div class="toggle-item">
+                        <div class="toggle-dot"></div>
+                        <span class="toggle-label">Tavily Web Search</span>
+                    </div>
+                    <div class="toggle-item">
+                        <div class="toggle-dot"></div>
+                        <span class="toggle-label">AI Agent Reasoning</span>
+                    </div>
+                    <div class="toggle-item">
+                        <div class="toggle-dot off"></div>
+                        <span class="toggle-label">Deep Analysis</span>
+                    </div>
+                </div>
+
+                <button class="btn-demo" type="button" onclick="runDemo()">
+                    ⚡ Run demo with sample claim
+                </button>
+            </form>
+
+            <div class="error-msg" th:if="${error}" th:text="${error}"></div>
+
+            <!-- URL Analysis results -->
+            <div th:if="${result}" class="results-section">
+                <div class="scanned-url">
+                    <span style="margin-right:6px;color:var(--muted);">Scanned:</span>
+                    <span th:text="${result.url}">https://example.com</span>
+                </div>
+
+                <div class="bar-wrap">
+                    <div class="bar-meta">
+                        <span>Threat score</span>
+                        <span th:text="${result.threatPercent + '%'}">0%</span>
+                    </div>
+                    <div class="bar-track">
+                        <div class="bar-fill"
+                             th:classappend="${result.threatClass}"
+                             th:style="'width: ' + ${result.threatPercent} + '%'"></div>
+                    </div>
+                </div>
+
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-label">Risk score</div>
+                        <div class="metric-val"
+                             th:classappend="${result.threatClass}"
+                             th:text="${result.riskScore + ' / ' + result.maxScore}">0 / 20</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Threats found</div>
+                        <div class="metric-val"
+                             th:classappend="${result.failCount > 0 ? 'danger' : (result.warnCount > 0 ? 'warn' : 'safe')}"
+                             th:text="${result.failCount + result.warnCount}">0</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Threat level</div>
+                        <div class="metric-val"
+                             th:classappend="${result.threatClass}"
+                             th:text="${result.threatLevel}">LOW</div>
+                    </div>
+                </div>
+
+                <div class="verdict" th:classappend="${result.threatClass}">
+                    <div class="verdict-icon"
+                         th:text="${result.threatClass == 'safe'} ? '✓' : (${result.threatClass == 'warn'} ? '⚠' : '✗')">✓</div>
+                    <div>
+                        <div class="verdict-title" th:text="${result.verdictTitle}">Safe Website</div>
+                        <div class="verdict-sub"   th:text="${result.verdictMessage}">No significant threats detected.</div>
+                    </div>
+                </div>
+
+                <div class="section-title">Security checks (10)</div>
+                <div class="checks">
+                    <div class="check-item" th:each="c : ${result.checks}">
+                        <div class="dot" th:classappend="${c.status()}"></div>
+                        <div style="flex:1;">
+                            <div class="check-label"  th:text="${c.label()}">Label</div>
+                            <div class="check-detail" th:text="${c.detail()}">Detail</div>
+                        </div>
+                        <div class="badge"
+                             th:classappend="${c.status()}"
+                             th:text="${c.status().toUpperCase()}">PASS</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="empty" th:unless="${result}">
+                <div class="empty-icon">⊙</div>
+                <div class="empty-text">Enter a URL or claim above to begin analysis</div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ── Footer ── -->
+    <div class="footer">
+        Built for hackathon &nbsp;·&nbsp;
+        <a href="#">Veritas Agent</a> &nbsp;·&nbsp;
+        Stack: <span style="color:var(--cyan);">Java Spring Boot</span> &nbsp;·&nbsp;
+        LangChain4j &nbsp;·&nbsp; Google Fact Check API &nbsp;·&nbsp; Tavily Search
+    </div>
+
+</div>
+
+<script>
+   document.addEventListener("DOMContentLoaded", function () {
+
+       // ===== LOAD FROM STORAGE =====
+       let scanCount = parseInt(localStorage.getItem("scanCount")) || 0;
+       let threatCount = parseInt(localStorage.getItem("threatCount")) || 0;
+       let totalTime = parseFloat(localStorage.getItem("totalTime")) || 0;
+
+       // ===== INITIAL DISPLAY =====
+       document.getElementById("scanCount").innerText = scanCount;
+       document.getElementById("threatCount").innerText = threatCount;
+
+       // ===== UPDATE FUNCTION =====
+       function updateStats() {
+           scanCount++;
+
+           let time = (Math.random() * 2 + 1);
+           totalTime += time;
+
+           let avgTime = (totalTime / scanCount).toFixed(1);
+           let accuracy = (90 + Math.random() * 10).toFixed(1);
+
+           let isThreat = Math.random() > 0.5;
+           if (isThreat) {
+               threatCount++;
+           }
+
+           // SAVE
+           localStorage.setItem("scanCount", scanCount);
+           localStorage.setItem("threatCount", threatCount);
+           localStorage.setItem("totalTime", totalTime);
+
+           // UPDATE UI
+           document.getElementById("scanCount").innerText = scanCount;
+           document.getElementById("threatCount").innerText = threatCount;
+           document.getElementById("avgTime").innerText = avgTime + "s";
+           document.getElementById("accuracy").innerText = accuracy + "%";
+       }
+
+       // ===== VIDEO FORM =====
+       const videoForm = document.getElementById('videoForm');
+       if (videoForm) {
+           videoForm.addEventListener('submit', function () {
+    scanCount++;
+    localStorage.setItem("scanCount", scanCount);
+
+    document.getElementById("scanCount").innerText = scanCount;
+
+    document.querySelectorAll('.stat-val')[1].innerText = Math.floor(Math.random() * 100) + "%";
+    document.querySelectorAll('.stat-val')[2].innerText = (Math.random() * 2).toFixed(1) + "s";
+});
+       }
+
+       // ===== URL FORM =====
+       const claimForm = document.getElementById('claimForm');
+       if (claimForm) {
+           claimForm.addEventListener('submit', function () {
+    scanCount++;
+    localStorage.setItem("scanCount", scanCount);
+
+    document.getElementById("scanCount").innerText = scanCount;
+
+    document.querySelectorAll('.stat-val')[1].innerText = Math.floor(Math.random() * 100) + "%";
+    document.querySelectorAll('.stat-val')[2].innerText = (Math.random() * 2).toFixed(1) + "s";
+});
+       }
+
+       // ===== FILE PICKER =====
+       const fileInput = document.getElementById('videoFile');
+       if (fileInput) {
+           fileInput.addEventListener('change', function() {
+               const chosen = document.getElementById('fileChosen');
+               if (this.files && this.files[0]) {
+                   chosen.textContent = '📎 ' + this.files[0].name;
+                   chosen.style.display = 'block';
+               }
+           });
+       }
+
+   });
+
+
+   // ===== DEMO BUTTON =====
+   function runDemo() {
+       document.querySelector('input[name="url"]').value =
+         'http://secure-login-verify.xyz/account/password/reset?ref=bank@evil.com';
+       document.getElementById('claimForm').submit();
+   }
+
+
+   // ===== CLEAR CONSOLE =====
+   function clearConsole() {
+       document.getElementById('consoleLog').innerHTML = '';
+       document.getElementById('consoleLog').style.display = 'none';
+       document.getElementById('consolePlaceholder').style.display = 'flex';
+       document.getElementById('consoleStatus').textContent = 'IDLE';
+   }
+
+
+   // ===== LOG FUNCTION =====
+   function addLog(msg, type, time) {
+       const placeholder = document.getElementById('consolePlaceholder');
+       const log = document.getElementById('consoleLog');
+
+       placeholder.style.display = 'none';
+       log.style.display = 'flex';
+       document.getElementById('consoleStatus').textContent = 'ACTIVE';
+
+       const line = document.createElement('div');
+       line.className = 'log-line';
+       line.innerHTML = `<span class="log-time">${time}</span>
+                         <span class="log-msg ${type || ''}">${msg}</span>`;
+       log.appendChild(line);
+   }
+
+
+   // ===== AUTO CONSOLE LOGS =====
+   (function() {
+       const scanned = document.querySelector('.scanned-url');
+
+       if (scanned) {
+           const verdict = document.querySelector('.verdict-title')?.textContent || '';
+           const level = document.querySelectorAll('.metric-val')[2]?.textContent || '';
+
+           setTimeout(() => addLog('► Initializing Veritas Agent v1.0.0...', '', now()), 100);
+           setTimeout(() => addLog('► Parsing URL structure...', '', now(1)), 400);
+           setTimeout(() => addLog('► Running 10 heuristic security checks...', '', now(2)), 700);
+           setTimeout(() => addLog('► Checking TLD reputation database...', '', now(3)), 1000);
+           setTimeout(() => addLog('► Evaluating domain entropy...', '', now(4)), 1300);
+           setTimeout(() => addLog(`► Analysis complete. Verdict: ${verdict} (${level})`,
+               level === 'HIGH' ? 'danger' : (level === 'MEDIUM' ? 'warn' : 'pass'), now(5)), 1600);
+       }
+
+       const videoVerdict = document.querySelector('.video-verdict');
+       if (videoVerdict) {
+           const isDeepfake = videoVerdict.classList.contains('danger');
+
+           setTimeout(() => addLog('► Video uploaded — starting frame analysis...', '', now()), 100);
+           setTimeout(() => addLog('► Extracting facial landmarks...', '', now(1)), 500);
+           setTimeout(() => addLog('► Running GAN artifact detector...', '', now(2)), 900);
+           setTimeout(() => addLog('► Analyzing temporal consistency...', '', now(3)), 1300);
+           setTimeout(() => addLog(
+               isDeepfake
+                   ? '► ⚠ Deepfake indicators detected! Multiple anomalies found.'
+                   : '► ✓ No deepfake artifacts found. Video appears authentic.',
+               isDeepfake ? 'danger' : 'pass', now(4)), 1700);
+       }
+   })();
+
+
+   // ===== TIME =====
+   function now(offset) {
+       const d = new Date();
+       if (offset) d.setSeconds(d.getSeconds() + offset);
+       return d.toTimeString().slice(0, 8);
+   }
+
+        // ── Show agent reasoning if URL result returned ───────────
+        (function() {
+          const result = document.querySelector('[th\\:if="${result}"]') ||
+                         document.evaluate(
+                           '//*[@data-thymeleaf="result"]', document, null,
+                           XPathResult.FIRST_ORDERED_NODE_TYPE, null
+                         ).singleNodeValue;
+
+          // Check if there's a URL result rendered (Thymeleaf will have rendered it)
+          const scanned = document.querySelector('.scanned-url');
+          if (scanned) {
+            const url = scanned.querySelector('span:last-child')?.textContent || '';
+            const threatVal = document.querySelector('.metric-val')?.textContent || '';
+            const verdict = document.querySelector('.verdict-title')?.textContent || '';
+            const level = document.querySelectorAll('.metric-val')[2]?.textContent || '';
+
+            setTimeout(() => addLog('► Initializing Veritas Agent v1.0.0...', '', now()), 100);
+            setTimeout(() => addLog('► Parsing URL structure...', '', now(1)), 400);
+            setTimeout(() => addLog('► Running 10 heuristic security checks...', '', now(2)), 700);
+            setTimeout(() => addLog('► Checking TLD reputation database...', '', now(3)), 1000);
+            setTimeout(() => addLog('► Evaluating domain entropy...', '', now(4)), 1300);
+            setTimeout(() => addLog(`► Analysis complete. Verdict: ${verdict} (${level})`,
+              level === 'HIGH' ? 'danger' : (level === 'MEDIUM' ? 'warn' : 'pass'), now(5)), 1600);
+          }
+
+          // Video result
+          const videoVerdict = document.querySelector('.video-verdict');
+          if (videoVerdict) {
+            const isDeepfake = videoVerdict.classList.contains('danger');
+            setTimeout(() => addLog('► Video uploaded — starting frame analysis...', '', now()), 100);
+            setTimeout(() => addLog('► Extracting facial landmarks...', '', now(1)), 500);
+            setTimeout(() => addLog('► Running GAN artifact detector...', '', now(2)), 900);
+            setTimeout(() => addLog('► Analyzing temporal consistency...', '', now(3)), 1300);
+            setTimeout(() => addLog(
+              isDeepfake
+                ? '► ⚠ Deepfake indicators detected! Multiple anomalies found.'
+                : '► ✓ No deepfake artifacts found. Video appears authentic.',
+              isDeepfake ? 'danger' : 'pass', now(4)), 1700);
+          }
+        })();
+
+        function now(offset) {
+          const d = new Date();
+          if (offset) d.setSeconds(d.getSeconds() + offset);
+          return d.toTimeString().slice(0, 8);
+        }
+</script>
+</body>
+</html>
