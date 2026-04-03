@@ -9,7 +9,7 @@
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
-      <module name="VeritasAgent" target="25" />
+      <module name="VeritasAgent" target="1.8" />
     </bytecodeTargetLevel>
   </component>
   <component name="JavacSettings">
