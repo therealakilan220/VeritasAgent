@@ -9,7 +9,6 @@
     <artifactId>veritas-agent</artifactId>
     <version>1.0.0</version>
 
-    <!-- Spring Boot Parent -->
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
@@ -17,14 +16,13 @@
         <relativePath/>
     </parent>
 
-    <!-- Java Version -->
     <properties>
         <java.version>17</java.version>
     </properties>
 
     <dependencies>
 
-        <!-- Spring Boot Web -->
+        <!-- Spring Boot Web (includes multipart upload support) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
@@ -50,30 +48,40 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- ✅ Teammate dependency (AI) -->
+        <!-- LangChain4j core — exclude slf4j-simple to avoid logging conflict -->
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j</artifactId>
             <version>0.33.0</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-simple</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
+
+        <!-- LangChain4j Ollama -->
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-ollama</artifactId>
             <version>0.33.0</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-simple</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
-        <!-- ✅ Logging -->
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-simple</artifactId>
-            <version>2.0.7</version>
-        </dependency>
+        <!-- ❌ REMOVED: slf4j-simple — conflicts with Spring Boot's Logback.
+             Spring Boot already bundles logback-classic via spring-boot-starter-web.
+             Having two SLF4J bindings causes silent crashes on startup. -->
 
     </dependencies>
 
     <build>
         <plugins>
-            <!-- Spring Boot Run Support -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
